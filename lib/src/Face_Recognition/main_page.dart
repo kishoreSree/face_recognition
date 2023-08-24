@@ -18,7 +18,7 @@ class _Face1State extends State<Face1> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Image-recognition"),
+        title: const Text("Image-recognition"),
         backgroundColor: Color.fromARGB(255, 14, 63, 92),
       ),
       body: Column(
@@ -77,7 +77,7 @@ class _Face1State extends State<Face1> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: const Color.fromARGB(255, 42, 95, 187),
+                  color:  Color.fromARGB(255, 42, 95, 187),
                 ),
               ),
             ),

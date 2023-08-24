@@ -1,6 +1,7 @@
+import 'package:face_recognition/src/Face_Recognition/bloc/namechange.dart';
 import 'package:face_recognition/src/Face_Recognition/main_page.dart';
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/adapters.dart';
 
 void main() async {
@@ -15,9 +16,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Face1(),
+    return BlocProvider(
+      create: (context) => SelectedNameCubit(),
+      child: const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Face1(),
+      ),
     );
   }
 }

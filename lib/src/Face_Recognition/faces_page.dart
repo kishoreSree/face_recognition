@@ -1,3 +1,4 @@
+import 'package:face_recognition/src/Face_Recognition/library_for_variables.dart';
 import 'package:face_recognition/src/Face_Recognition/local_db.dart';
 import 'package:face_recognition/src/Face_Recognition/methods.dart';
 import 'package:flutter/material.dart';
@@ -10,8 +11,6 @@ class RegisteredFaces extends StatefulWidget {
 }
 
 class _RegisteredFacesState extends State<RegisteredFaces> {
-  List<Map<dynamic, dynamic>> dataList = [];
-
   Future<void> retriveAndSetData() async {
     final retrivedData = await retriveStoredDates();
     setState(() {
@@ -49,7 +48,7 @@ class _RegisteredFacesState extends State<RegisteredFaces> {
           const SizedBox(
             height: 30,
           ),
-         const Divider(
+          const Divider(
             thickness: 2,
           ),
           Row(
@@ -95,7 +94,9 @@ class _RegisteredFacesState extends State<RegisteredFaces> {
                             width: 20,
                           ),
                           Text(name),
-                          Spacer(),
+                          SizedBox(
+                            width: MediaQuery.of(context).size.width * 0.4,
+                          ),
                           Container(
                               height: 30,
                               width: 100,

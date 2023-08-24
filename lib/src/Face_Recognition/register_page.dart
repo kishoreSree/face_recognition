@@ -21,12 +21,12 @@ class _RegisterFacesState extends State<RegisterFaces> {
   img.Image? Fullface;
   bool noFace = false;
   TextEditingController registerdingNameController = TextEditingController();
-  Interpreter? interpreter;
+  
   void alertBox(BuildContext ctx) {
     showDialog(
         context: context,
         builder: (ctx) => Container(
-              height: 300,
+              height: 350,
               child: AlertDialog(
                 title: const Text(
                   "Are You sure To Register This Face",
@@ -108,12 +108,13 @@ class _RegisterFacesState extends State<RegisterFaces> {
             enableLandmarks: true,
             performanceMode: face.FaceDetectorMode.accurate));
     final List<face.Face> faces = await faceDetector.processImage(inputimage);
-    int newWidth = (faces[0].boundingBox.width * 0.8).toInt();
-    int xOffset = ((faces[0].boundingBox.width - newWidth) / 2).toInt();
 
-    int newHeight = (faces[0].boundingBox.height * 0.8).toInt();
-    int yOffset = ((faces[0].boundingBox.height - newHeight) / 2).toInt();
     if (faces.isNotEmpty) {
+      int newWidth = (faces[0].boundingBox.width * 0.8).toInt();
+      int xOffset = (faces[0].boundingBox.width - newWidth) ~/ 2;
+
+      int newHeight = (faces[0].boundingBox.height * 0.8).toInt();
+      int yOffset = (faces[0].boundingBox.height - newHeight) ~/ 2;
       print("Face ok");
       setState(() {
         registeringFace = img.copyCrop(
@@ -137,32 +138,20 @@ class _RegisterFacesState extends State<RegisterFaces> {
     }
   }
 
-  void loadModel() async {
-    interpreter = await Interpreter.fromAsset('assets/mobilefacenet.tflite');
-    if (interpreter != null) {
-      print("Model Loaded");
-    }
-  }
+  
 
   List<double> recog(img.Image img) {
-    // imageToFloat32List(img);
     List input = imageToByteListFloat32(img, 112, 128, 128);
     input = input.reshape([1, 112, 112, 3]);
     List output = List.filled(1 * 192, null, growable: false).reshape([1, 192]);
-    if (interpreter != null) {}
     interpreter!.run(input, output);
     output = output.reshape([192]);
-    // print("emb1:${List.from(output)}");
+
     setState(() {
       registeredembeddings = List.from(output);
     });
     return List.from(output);
   }
-
-  // List<double> GenerateEmbeddings(img.Image image) {
-  //   Float32List input = imageToByteListFloat32(image, 112, 128, 128);
-  //   input = input.reshape([1, 112, 112, 3]);
-  // }
 
   @override
   void initState() {
@@ -178,66 +167,70 @@ class _RegisterFacesState extends State<RegisterFaces> {
         backgroundColor: const Color.fromARGB(255, 42, 95, 187),
         title: const Text("Register Your Face"),
       ),
-      body: Column(
-        children: [
-          Fullface == null
-              ? Image.asset("assets/face_gif.gif")
-              : Container(
-                  height: 300,
-                  width: double.infinity,
-                  child: Image.memory(
-                      Uint8List.fromList(img.encodePng(Fullface!))),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Fullface == null
+                ? Image.asset("assets/face_gif.gif")
+                : Container(
+                    height: 300,
+                    width: double.infinity,
+                    child: Image.memory(
+                        Uint8List.fromList(img.encodePng(Fullface!))),
+                  ),
+            const SizedBox(
+              height: 30,
+            ),
+            const Text(
+              "Choose your way to Register:",
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black),
+            ),
+            const SizedBox(
+              height: 30,
+            ),
+            Row(
+              children: [
+                const SizedBox(
+                  width: 100,
                 ),
-          const SizedBox(
-            height: 30,
-          ),
-          const Text(
-            "Choose your way to Register:",
-            style: TextStyle(
-                fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black),
-          ),
-          const SizedBox(
-            height: 30,
-          ),
-          Row(
-            children: [
-              const SizedBox(
-                width: 100,
-              ),
-              Card(
-                elevation: 6,
-                child: Container(
-                  height: 50,
-                  width: 70,
-                  child: IconButton(
-                      onPressed: () {
-                        pickImage(true);
-                      },
-                      icon: Image.asset("assets/camera.png")),
+                Card(
+                  elevation: 6,
+                  child: Container(
+                    height: 50,
+                    width: 70,
+                    child: IconButton(
+                        onPressed: () {
+                          pickImage(true);
+                        },
+                        icon: Image.asset("assets/camera.png")),
+                  ),
                 ),
-              ),
-              const SizedBox(
-                width: 30,
-              ),
-              Card(
-                elevation: 6,
-                child: Container(
-                  height: 50,
-                  width: 70,
-                  child: IconButton(
-                      onPressed: () {
-                        pickImage(false);
-                      },
-                      icon: Image.asset("assets/gallary.png")),
+                const SizedBox(
+                  width: 30,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(
-            height: 20,
-          ),
-          noFace ? const Text("No Face Detected") : const Text(""),
-        ],
+                Card(
+                  elevation: 6,
+                  child: Container(
+                    height: 50,
+                    width: 70,
+                    child: IconButton(
+                        onPressed: () {
+                          pickImage(false);
+                        },
+                        icon: Image.asset("assets/gallary.png")),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(
+              height: 20,
+            ),
+            noFace ? const Text("No Face Detected") : const Text(""),
+          ],
+        ),
       ),
     );
   }

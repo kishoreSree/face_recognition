@@ -1,7 +1,12 @@
+import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:face_recognition/src/Face_Recognition/bloc/namechange.dart';
+import 'package:face_recognition/src/Face_Recognition/library_for_variables.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image/image.dart' as img;
+import 'package:tflite_flutter/tflite_flutter.dart';
 
 Widget elvatedButton(
   BuildContext context,
@@ -62,4 +67,64 @@ Float32List imageToByteListFloat32(
     }
   }
   return convertedBytes.buffer.asFloat32List();
+}
+
+double calculateCosineSimilarity(
+    List<double> embeddings1, List<double> embeddings2) {
+  double dotProduct = 0;
+  double norm1 = 0;
+  double norm2 = 0;
+  for (int i = 0; i < embeddings1.length; i++) {
+    dotProduct += embeddings1[i] * embeddings1[i];
+    norm1 += embeddings1[i] * embeddings1[i];
+    norm2 += embeddings2[i] * embeddings2[i];
+  }
+  norm1 = sqrt(norm1);
+  norm2 = sqrt(norm2);
+  if (norm1 == 0 || norm2 == 0) {
+    return 0;
+  }
+  return dotProduct / (norm1 * norm2);
+}
+
+void FaceMatchMethod(BuildContext context) {
+  if (recognitionEmbeddings != null) {
+    for (var data in dataList) {
+      List<double>? storedEmbeddings = data['Embeddings'];
+      if (storedEmbeddings != null) {
+        double similarity =
+            calculateCosineSimilarity(recognitionEmbeddings!, storedEmbeddings);
+        double similarity2 =
+            computeDistance(recognitionEmbeddings!, storedEmbeddings);
+        print("Similarity:$similarity2");
+        if (similarity2 < 0.4) {
+          String name = data['name'];
+          context.read<SelectedNameCubit>().updateSelectedName(name);
+
+          print("Matching face found:$name");
+        } else {
+          print("No Faces Registerd");
+        }
+      } else {
+        print("StoredEmbeddings is null");
+      }
+    }
+  } else {
+    print("Recognitized Embeddings Null");
+  }
+}
+
+void loadModel() async {
+  interpreter = await Interpreter.fromAsset('assets/mobilefacenet.tflite');
+  if (interpreter != null) {
+    print("Model Loaded");
+  }
+}
+
+double computeDistance(List<double> emb1, List<double> emb2) {
+  double sum = 0;
+  for (int i = 0; i < emb1.length; i++) {
+    sum += (emb1[i] - emb2[i]) * (emb1[i] - emb2[i]);
+  }
+  return sqrt(sum);
 }
