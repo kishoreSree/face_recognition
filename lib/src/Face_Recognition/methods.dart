@@ -69,53 +69,79 @@ Float32List imageToByteListFloat32(
   return convertedBytes.buffer.asFloat32List();
 }
 
-double calculateCosineSimilarity(
-    List<double> embeddings1, List<double> embeddings2) {
-  double dotProduct = 0;
-  double norm1 = 0;
-  double norm2 = 0;
-  for (int i = 0; i < embeddings1.length; i++) {
-    dotProduct += embeddings1[i] * embeddings1[i];
-    norm1 += embeddings1[i] * embeddings1[i];
-    norm2 += embeddings2[i] * embeddings2[i];
-  }
-  norm1 = sqrt(norm1);
-  norm2 = sqrt(norm2);
-  if (norm1 == 0 || norm2 == 0) {
-    return 0;
-  }
-  return dotProduct / (norm1 * norm2);
-}
-
 void FaceMatchMethod(BuildContext context) {
+  similarities.clear();
+  indices.clear();
+  bool allSimilaritiesAboveThreshold = true;
   if (recognitionEmbeddings != null) {
-    for (var data in dataList) {
-      List<double>? storedEmbeddings = data['Embeddings'];
+    for (int i = 0; i < dataList.length; i++) {
+      List<double>? storedEmbeddings = dataList[i]['Embeddings'];
       if (storedEmbeddings != null) {
-        double similarity =
-            calculateCosineSimilarity(recognitionEmbeddings!, storedEmbeddings);
         double similarity2 =
             computeDistance(recognitionEmbeddings!, storedEmbeddings);
-        print("Similarity:$similarity2");
-        if (similarity2 < 0.4) {
-          String name = data['name'];
-          context.read<SelectedNameCubit>().updateSelectedName(name);
+        similarities.add(similarity2);
+        indices.add(i);
 
+        print("Similarity:$similarity2");
+        if (similarity2 < 2.0) {
+          String name = dataList[i]['name'];
           print("Matching face found:$name");
+          allSimilaritiesAboveThreshold = false;
+          isUnregistered = false;
         } else {
           print("No Faces Registerd");
+          // context
+          //     .read<SelectedNameCubit>()
+          //     .updateSelectedName("Unregisterd face");
         }
       } else {
         print("StoredEmbeddings is null");
+        context
+            .read<SelectedNameCubit>()
+            .updateSelectedName("StoredEmbeddings is null");
       }
+    }
+    if (allSimilaritiesAboveThreshold) {
+      isUnregistered = true;
+      context.read<SelectedNameCubit>().updateSelectedName("Unregistered Face");
+      print("Unregistered face found");
     }
   } else {
     print("Recognitized Embeddings Null");
+    context
+        .read<SelectedNameCubit>()
+        .updateSelectedName("Recognitized Embeddings Null");
+  }
+}
+
+void similarity(BuildContext context) {
+  if (similarities.isNotEmpty && indices.isNotEmpty) {
+    print("similarities:$similarities");
+
+    double minSimilarity = similarities[0];
+
+    int minIndex = indices[0];
+
+    for (int i = 1; i < similarities.length; i++) {
+      if (similarities[i] < minSimilarity) {
+        minSimilarity = similarities[i];
+        minIndex = indices[i];
+      }
+    }
+    print("minsimilarity:$minSimilarity");
+    print("Index:$minIndex");
+
+    String name = dataList[minIndex]['name'];
+    print("Matching face found:$name");
+
+    isUnregistered == false
+        ? context.read<SelectedNameCubit>().updateSelectedName(name)
+        : "";
   }
 }
 
 void loadModel() async {
-  interpreter = await Interpreter.fromAsset('assets/mobilefacenet.tflite');
+  interpreter = await Interpreter.fromAsset('assets/facenet.tflite');
   if (interpreter != null) {
     print("Model Loaded");
   }

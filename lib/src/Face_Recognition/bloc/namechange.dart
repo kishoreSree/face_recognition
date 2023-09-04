@@ -6,4 +6,7 @@ class SelectedNameCubit extends Cubit<String> {
   void updateSelectedName(String newName) {
     emit(newName);
   }
+  void resetSelectedName() {
+    emit('');
+  }
 }

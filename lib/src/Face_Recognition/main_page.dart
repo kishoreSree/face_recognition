@@ -12,8 +12,6 @@ class Face1 extends StatefulWidget {
 }
 
 class _Face1State extends State<Face1> {
-  
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -36,7 +34,7 @@ class _Face1State extends State<Face1> {
               300,
               50,
               const Color.fromARGB(255, 42, 95, 187),
-              20,
+              5,
               FontWeight.w600,
               18,
               Colors.white,
@@ -53,7 +51,7 @@ class _Face1State extends State<Face1> {
               300,
               50,
               const Color.fromARGB(255, 42, 95, 187),
-              20,
+              5,
               FontWeight.w600,
               18,
               Colors.white,
@@ -77,7 +75,7 @@ class _Face1State extends State<Face1> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color:  Color.fromARGB(255, 42, 95, 187),
+                  color: Color.fromARGB(255, 42, 95, 187),
                 ),
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:face_recognition/src/Face_Recognition/library_for_variables.dart
 import 'package:face_recognition/src/Face_Recognition/methods.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_ml_kit/google_ml_kit.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart'
     as face;
 import 'package:image/image.dart' as img;
@@ -21,8 +22,9 @@ class _RegisterFacesState extends State<RegisterFaces> {
   img.Image? Fullface;
   bool noFace = false;
   TextEditingController registerdingNameController = TextEditingController();
-  
-  void alertBox(BuildContext ctx) {
+  final GlobalKey<FormState> formkey = GlobalKey<FormState>();
+
+  Future<void> alertBox(BuildContext ctx) async {
     showDialog(
         context: context,
         builder: (ctx) => Container(
@@ -38,27 +40,34 @@ class _RegisterFacesState extends State<RegisterFaces> {
                 content: Container(
                   height: 300,
                   width: 200,
-                  child: Column(
-                    children: [
-                      registeringFace != null
-                          ? Container(
-                              height: 200,
-                              width: 200,
-                              child: Image.memory(Uint8List.fromList(
-                                  img.encodePng(registeringFace!))),
-                            )
-                          : const Center(child: CircularProgressIndicator()),
-                      Card(
-                        elevation: 6,
-                        child: TextField(
+                  child: Form(
+                    key: formkey,
+                    child: Column(
+                      children: [
+                        registeringFace != null
+                            ? Container(
+                                height: 200,
+                                width: 200,
+                                child: Image.memory(Uint8List.fromList(
+                                    img.encodePng(registeringFace!))),
+                              )
+                            : const Center(child: CircularProgressIndicator()),
+                        TextFormField(
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           decoration: const InputDecoration(
                               contentPadding: EdgeInsets.all(10),
                               hintText: 'name',
                               border: InputBorder.none),
                           controller: registerdingNameController,
+                          validator: (value) {
+                            if (value!.isEmpty) {
+                              return 'Enter a name';
+                            }
+                            return null;
+                          },
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 actions: [
@@ -67,8 +76,9 @@ class _RegisterFacesState extends State<RegisterFaces> {
                           backgroundColor:
                               MaterialStateProperty.all(Colors.deepOrange)),
                       onPressed: () {
-                        Navigator.pop(ctx);
-                        if (registeringFace != null) {
+                        if (formkey.currentState!.validate() &&
+                            registeringFace != null &&
+                            registerdingNameController.text.isNotEmpty) {
                           recog(registeringFace!);
                         }
                         storingData(
@@ -78,6 +88,7 @@ class _RegisterFacesState extends State<RegisterFaces> {
                         setState(() {
                           registerdingNameController.text = "";
                         });
+                        back(context);
                       },
                       child: Text("Register")),
                 ],
@@ -85,7 +96,19 @@ class _RegisterFacesState extends State<RegisterFaces> {
             ));
   }
 
-  pickImage(bool camera) async {
+  void back(BuildContext context) {
+    Navigator.pop(context, true);
+  }
+
+  int calculateBytesPerRow(int width, InputImageFormat format) {
+    if (format == InputImageFormat.nv21) {
+      return width + ((width + 1) ~/ 2) * 2;
+    } else {
+      return width;
+    }
+  }
+
+  Future<void> pickImage(bool camera) async {
     final pickedImage = camera
         ? await ImagePicker().pickImage(source: ImageSource.camera)
         : await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -95,11 +118,19 @@ class _RegisterFacesState extends State<RegisterFaces> {
 
     final imagebytes = await pickedImage.readAsBytes();
     final decodedimage = img.decodeImage(Uint8List.fromList(imagebytes));
+    if (decodedimage == null) {
+      return;
+    }
+    final WriteBuffer allBytes = WriteBuffer();
+    final rotatedImage = img.copyRotate(decodedimage, 90);
+
     setState(() {
-      Fullface = decodedimage;
+      Fullface = rotatedImage;
+      
       print("Full Face Updated");
     });
     final inputimage = face.InputImage.fromFilePath(pickedImage.path);
+
     final face.FaceDetector faceDetector = face.FaceDetector(
         options: face.FaceDetectorOptions(
             enableTracking: true,
@@ -107,45 +138,57 @@ class _RegisterFacesState extends State<RegisterFaces> {
             enableClassification: true,
             enableLandmarks: true,
             performanceMode: face.FaceDetectorMode.accurate));
-    final List<face.Face> faces = await faceDetector.processImage(inputimage);
+    try {
+      final List<face.Face> faces = await faceDetector.processImage(inputimage);
+      print("Face.length:${faces.length}");
+      if (faces.isNotEmpty) {
+        double widthPercentageToCrop = 0.36;
+        double heightPercentageToCrop = 0.33;
 
-    if (faces.isNotEmpty) {
-      int newWidth = (faces[0].boundingBox.width * 0.8).toInt();
-      int xOffset = (faces[0].boundingBox.width - newWidth) ~/ 2;
+        int newWidth =
+            (faces[0].boundingBox.width * (1 - widthPercentageToCrop)).toInt();
+        int xOffset = ((faces[0].boundingBox.width - newWidth) / 1.9).toInt();
 
-      int newHeight = (faces[0].boundingBox.height * 0.8).toInt();
-      int yOffset = (faces[0].boundingBox.height - newHeight) ~/ 2;
-      print("Face ok");
-      setState(() {
-        registeringFace = img.copyCrop(
-            decodedimage!,
-            faces[0].boundingBox.left.toInt() + xOffset,
-            faces[0].boundingBox.top.toInt() + yOffset,
-            newWidth,
-            newHeight);
-        print("Croped Face Updated");
-        noFace = false;
-      });
-      if (!noFace) {
-        alertBox(context);
+        int newHeight =
+            (faces[0].boundingBox.height * (1 - heightPercentageToCrop))
+                .toInt();
+        int yOffset = ((faces[0].boundingBox.height - newHeight) / 2).toInt();
+        setState(() {
+          registeringFace = img.copyCrop(
+              decodedimage,
+              faces[0].boundingBox.left.toInt() + xOffset,
+              faces[0].boundingBox.top.toInt() + yOffset,
+              newWidth,
+              newHeight);
+          print("Croped Face Updated");
+          noFace = false;
+        });
+        callalert();
+      } else {
+        print("No faces");
+        setState(() {
+          noFace = true;
+        });
       }
-    } else {
-      print("No faces");
-      setState(() {
-        noFace = true;
-      });
-      return false;
+    } catch (e) {
+      print("errror:$e");
     }
   }
 
-  
+  void callalert() async {
+    if (!noFace) {
+      alertBox(context);
+    }
+  }
 
   List<double> recog(img.Image img) {
     List input = imageToByteListFloat32(img, 112, 128, 128);
     input = input.reshape([1, 112, 112, 3]);
-    List output = List.filled(1 * 192, null, growable: false).reshape([1, 192]);
+    List output = List.filled(1 * 128, null, growable: false)
+        .reshape([1, 128]); //192-mobilefacenet
+    if (interpreter != null) {}
     interpreter!.run(input, output);
-    output = output.reshape([192]);
+    output = output.reshape([128]); //192-mobilefacenet
 
     setState(() {
       registeredembeddings = List.from(output);
@@ -193,8 +236,8 @@ class _RegisterFacesState extends State<RegisterFaces> {
             ),
             Row(
               children: [
-                const SizedBox(
-                  width: 100,
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.35,
                 ),
                 Card(
                   elevation: 6,
@@ -202,8 +245,8 @@ class _RegisterFacesState extends State<RegisterFaces> {
                     height: 50,
                     width: 70,
                     child: IconButton(
-                        onPressed: () {
-                          pickImage(true);
+                        onPressed: () async {
+                          await pickImage(true);
                         },
                         icon: Image.asset("assets/camera.png")),
                   ),
@@ -217,8 +260,8 @@ class _RegisterFacesState extends State<RegisterFaces> {
                     height: 50,
                     width: 70,
                     child: IconButton(
-                        onPressed: () {
-                          pickImage(false);
+                        onPressed: () async {
+                          await pickImage(false);
                         },
                         icon: Image.asset("assets/gallary.png")),
                   ),

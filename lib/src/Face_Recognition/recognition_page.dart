@@ -21,9 +21,10 @@ class RecognitionFaces extends StatefulWidget {
 
 class _RecognitionFacesState extends State<RecognitionFaces> {
   img.Image? fullface;
-  void recognitionImage() async {
-    final pickedImage =
-        await ImagePicker().pickImage(source: ImageSource.camera);
+  void recognitionImage(bool camera) async {
+    final pickedImage = camera
+        ? await ImagePicker().pickImage(source: ImageSource.camera)
+        : await ImagePicker().pickImage(source: ImageSource.gallery);
     if (pickedImage == null) {
       return;
     }
@@ -44,11 +45,16 @@ class _RecognitionFacesState extends State<RecognitionFaces> {
     final List<face.Face> faces = await faceDetector.processImage(inputimage);
     if (faces.isNotEmpty) {
       print("Face detected");
-      int newWidth = (faces[0].boundingBox.width * 0.8).toInt();
-      int xOffset = (faces[0].boundingBox.width - newWidth) ~/ 2;
+      double widthPercentageToCrop = 0.36; // Adjust this value as needed
+      double heightPercentageToCrop = 0.33; // Adjust this value as needed
 
-      int newHeight = (faces[0].boundingBox.height * 0.8).toInt();
-      int yOffset = (faces[0].boundingBox.height - newHeight) ~/ 2;
+      int newWidth =
+          (faces[0].boundingBox.width * (1 - widthPercentageToCrop)).toInt();
+      int xOffset = ((faces[0].boundingBox.width - newWidth) / 1.9).toInt();
+
+      int newHeight =
+          (faces[0].boundingBox.height * (1 - heightPercentageToCrop)).toInt();
+      int yOffset = ((faces[0].boundingBox.height - newHeight) / 2).toInt();
       setState(() {
         recognitionFace = img.copyCrop(
             decodedimage!,
@@ -70,9 +76,9 @@ class _RecognitionFacesState extends State<RecognitionFaces> {
   List<double> recog(img.Image? img) {
     List input = imageToByteListFloat32(img!, 112, 128, 128);
     input = input.reshape([1, 112, 112, 3]);
-    List output = List.filled(1 * 192, null, growable: false).reshape([1, 192]);
+    List output = List.filled(1 * 128, null, growable: false).reshape([1, 128]);
     interpreter!.run(input, output);
-    output = output.reshape([192]);
+    output = output.reshape([128]);
     print("embrecog:${List.from(output)}");
     setState(() {
       recognitionEmbeddings = List.from(output);
@@ -99,6 +105,18 @@ class _RecognitionFacesState extends State<RecognitionFaces> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+              onPressed: () {
+                Navigator.pop(context);
+                context.read<SelectedNameCubit>().resetSelectedName();
+                setState(() {
+                  recognitionFace = null;
+                });
+              },
+              icon: Icon(Icons.arrow_back))
+        ],
         centerTitle: true,
         backgroundColor: const Color.fromARGB(255, 42, 95, 187),
         title: const Text("Recognition"),
@@ -117,30 +135,50 @@ class _RecognitionFacesState extends State<RecognitionFaces> {
                   fontWeight: FontWeight.w600,
                   color: Color.fromARGB(255, 42, 95, 187)),
             ),
-            const SizedBox(
-              height: 10,
-            ),
-            Card(
-              elevation: 7,
-              child: Container(
-                height: 50,
-                width: 70,
-                child: IconButton(
-                    onPressed: () {
-                      recognitionImage();
-                    },
-                    icon: Image.asset("assets/camera.png")),
+            Padding(
+              padding: EdgeInsets.only(
+                  left: MediaQuery.of(context).size.width * 0.35, top: 10),
+              child: Row(
+                children: [
+                  Card(
+                    elevation: 7,
+                    child: Container(
+                      height: 50,
+                      width: 70,
+                      child: IconButton(
+                          onPressed: () {
+                            recognitionImage(true);
+                          },
+                          icon: Image.asset("assets/camera.png")),
+                    ),
+                  ),
+                  const SizedBox(
+                    width: 30,
+                  ),
+                  Card(
+                    elevation: 6,
+                    child: Container(
+                      height: 50,
+                      width: 70,
+                      child: IconButton(
+                          onPressed: () {
+                            recognitionImage(false);
+                          },
+                          icon: Image.asset("assets/gallary.png")),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(
               height: 10,
             ),
-            if (fullface != null)
+            if (recognitionFace != null)
               Container(
                 height: 300,
                 width: double.infinity,
-                child:
-                    Image.memory(Uint8List.fromList(img.encodePng(fullface!))),
+                child: Image.memory(
+                    Uint8List.fromList(img.encodePng(recognitionFace!))),
               ),
             const SizedBox(
               height: 10,
@@ -148,15 +186,17 @@ class _RecognitionFacesState extends State<RecognitionFaces> {
             if (fullface != null)
               elvatedButton(
                   context,
-                  "Check Similarity",
+                  "Get Matched Face",
                   70,
                   30,
                   Color.fromARGB(255, 42, 95, 187),
                   10,
                   FontWeight.w500,
                   17,
-                  Colors.white,
-                  () => FaceMatchMethod(context)),
+                  Colors.white, () {
+                FaceMatchMethod(context);
+                similarity(context);
+              }),
             BlocBuilder<SelectedNameCubit, String>(
               builder: (context, name) {
                 return Text("Matiching face:${name}");
